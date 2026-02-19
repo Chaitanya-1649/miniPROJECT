@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Traffic Route Optimization</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+html, body {
+height:100%;
+margin:0;
+}
+
+#map {
+height:100%;
+}
+
+.control-panel {
+position:absolute;
+top:10px;
+left:50%;
+transform:translateX(-50%);
+background:white;
+padding:15px;
+z-index:1000;
+border-radius:10px;
+box-shadow:0 0 15px rgba(0,0,0,0.3);
+}
+
+input {
+padding:6px;
+margin:5px;
+width:220px;
+border:1px solid #ccc;
+border-radius:4px;
+}
+
+button {
+padding:7px 15px;
+background:green;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
+}
+
+button:hover {
+background:darkgreen;
+}
+</style>
+</head>
+
+<body>
+
+<div class="control-panel">
+<div>
+Source:<br>
+<input type="text" id="source" placeholder="">
+</div>
+
+<div>
+Destination:<br>
+<input type="text" id="destination" placeholder="">
+</div>
+
+<br>
+<button onclick="getRoute()">Find Route</button>
+</div>
+
+<div id="map"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+var map = L.map('map').setView([16.3067, 80.4365], 13);
+
+L.tileLayer(
+'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+{
+attribution: '© OpenStreetMap contributors'
+}
+).addTo(map);
+
+var routeLayers = [];
+
+function getRoute() {
+
+var source = document.getElementById("source").value;
+var destination = document.getElementById("destination").value;
+
+if(source === "" || destination === ""){
+alert("Please enter both Source and Destination");
+return;
+}
+
+fetch("/find-route", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+source: source,
+destination: destination
+})
+})
+.then(response => response.json())
+.then(data => {
+
+if(data.error){
+alert(data.error);
+return;
+}
+
+routeLayers.forEach(layer => map.removeLayer(layer));
+routeLayers = [];
+
+data.routes.forEach(route => {
+
+var latlngs = route.route.map(coord => [coord[0], coord[1]]);
+
+var polyline = L.polyline(latlngs, {
+color: "green",
+weight: 5
+}).addTo(map);
+
+polyline.bindPopup(
+"<b>Distance:</b> " + route.distance_km + " km<br>" +
+"<b>Traffic:</b> " + route.traffic + " %<br>" +
+"<b>ETA:</b> " + route.eta + " mins"
+);
+
+routeLayers.push(polyline);
+map.fitBounds(polyline.getBounds());
+
+});
+
+})
+.catch(error => {
+console.log(error);
+alert("Error occurred. Check terminal.");
+});
+}
+
+</script>
+
+</body>
+</html>
